@@ -15,7 +15,7 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 
 # Correct model folder
-MODEL_DIR = Path("/home/feather/custom-models-main/models")
+MODEL_DIR = Path("../models")
 MODEL_NAME = "RealESRGAN_General_x4_v3"
 
 def enhance_with_realesrgan(image_bytes: bytes) -> bytes:
