@@ -61,137 +61,60 @@ See **[QUICK_START.md](./QUICK_START.md)** for detailed instructions.
 - Google Cloud SDK (for backend deployment)
 
 ## 🛠️ Development
+# PixelUp (Local Only Edition)
 
-### Frontend
+This repository has been stripped of all Docker and Cloud/CI deployment artifacts per request. What remains is the minimal code needed to run the image enhancement app entirely on your local machine.
+
+## Features
+- Local RealESRGAN (if Vulkan binary present) with OpenCV fallback
+- Firebase Auth, Firestore metadata, and Storage for images
+- React + TypeScript + Vite frontend
+- FastAPI backend (no Docker)
+
+## Run Locally
+Frontend:
 ```bash
 npm install
 npm run dev
 ```
-
-### Backend (Local)
+Backend:
 ```bash
-cd backend
-pip install -r requirements.txt
-python app.py
+python -m venv backend/.venv_local
+backend/.venv_local/bin/pip install -r backend/requirements.txt
+backend/.venv_local/bin/python backend/app.py
 ```
-
-### Backend (Docker)
+Env file (`.env`):
 ```bash
-./test-backend-local.sh
+VITE_BACKEND_URL=http://localhost:5000
 ```
 
-## 📁 Project Structure
-
+## Project Structure (Trimmed)
 ```
-├── src/                    # React frontend
-│   ├── components/        # UI components
-│   ├── pages/            # Page components
-│   ├── services/         # API services
-│   └── lib/              # Firebase config
-├── backend/               # Flask backend
-│   ├── app.py           # Main API
-│   ├── Dockerfile       # Container config
-│   └── requirements.txt # Python deps
-├── model/                # RealESRGAN model files
-├── firestore.rules       # Firestore security
-├── storage.rules         # Storage security
-└── firebase.json         # Firebase config
+├── src/              # React app
+├── backend/          # FastAPI server (app.py, requirements.txt)
+├── model/            # RealESRGAN model params
+├── firestore.rules   # Firestore security rules
+├── storage.rules     # Storage security rules
+└── firebase.json     # Firebase config (needed for local + hosted frontend)
 ```
 
-## 🔧 Configuration
+## Image Processing Logic
+1. Attempt RealESRGAN via `/usr/bin/realesrgan-ncnn-vulkan`
+2. Fallback: 4× bicubic resize + sharpen (OpenCV)
 
-### Environment Variables
-Create `.env` in the project root:
-```bash
-VITE_BACKEND_URL=http://localhost:5000  # or your Cloud Run URL
-```
+## Tech Stack
+Frontend: React, Vite, Tailwind, shadcn/ui, Firebase SDK
+Backend: FastAPI, Uvicorn, OpenCV (headless), NumPy
+Infra (remaining): Firebase Auth, Firestore, Storage
 
-### Firebase
-Configuration is in `src/lib/firebase.ts` (already set up for project `twitter-clone-f1d5b`)
+## Security
+Rules in `firestore.rules` and `storage.rules` enforce per-user access. Keep them if you still use Firebase; remove if not needed.
 
-## 📚 Documentation
+## Credits
+RealESRGAN (Tencent ARC Lab), shadcn/ui, Firebase.
 
-- **[QUICK_START.md](./QUICK_START.md)** - Fast deployment guide
-- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Comprehensive deployment docs
-- **[DEPLOYMENT_STATUS.md](./DEPLOYMENT_STATUS.md)** - Current deployment status
-- **[FIREBASE_SETUP.md](./FIREBASE_SETUP.md)** - Firebase configuration
-- **[SETUP_REALESRGAN.md](./SETUP_REALESRGAN.md)** - RealESRGAN setup guide
+## License
+MIT
 
+All deployment docs and scripts have been removed; this README is now the sole guide.
 ## 🔐 Security
-
-- Firestore rules enforce user-based access control
-- Storage rules allow authenticated reads and owner writes
-- CORS configured for secure cross-origin requests
-
-## 🎯 Image Processing
-
-The backend tries these methods in order:
-1. **RealESRGAN Vulkan** (if binary available with GPU)
-2. **OpenCV CPU Fallback** (4x bicubic + sharpening)
-
-For GPU acceleration, deploy to a VM with Vulkan drivers (see `DEPLOYMENT.md`).
-
-## 🐛 Troubleshooting
-
-### CORS Errors
-```bash
-./deploy-cors.sh
-```
-
-### "Requires Index" Error
-Wait for Firestore index to build (2-10 min). Check: [Firebase Console](https://console.firebase.google.com/project/twitter-clone-f1d5b/firestore/indexes)
-
-### Backend Connection Issues
-- Verify `VITE_BACKEND_URL` in `.env`
-- Check Cloud Run logs in GCP Console
-- Test health endpoint: `curl https://your-backend-url/health`
-
-## 📊 Tech Stack
-
-### Frontend
-- React 18 + TypeScript
-- Vite
-- Tailwind CSS + shadcn/ui
-- Firebase Web SDK
-
-### Backend
-- Python 3.11
-- Flask + CORS
-- OpenCV
-- NumPy
-- Gunicorn
-
-### Infrastructure
-- Firebase Hosting
-- Firebase Auth
-- Cloud Firestore
-- Firebase Storage
-- Cloud Run (backend)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - feel free to use this project for learning and development.
-
-## 🔗 Links
-
-- **Live App**: https://twitter-clone-f1d5b.web.app
-- **Firebase Console**: https://console.firebase.google.com/project/twitter-clone-f1d5b
-- **Cloud Console**: https://console.cloud.google.com/home/dashboard?project=twitter-clone-f1d5b
-
-## 🎉 Credits
-
-- RealESRGAN model by Tencent ARC Lab
-- UI components from shadcn/ui
-- Firebase by Google
-
----
-
-**Ready to deploy?** Start with [QUICK_START.md](./QUICK_START.md) 🚀

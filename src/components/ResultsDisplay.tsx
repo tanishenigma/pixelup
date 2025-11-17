@@ -80,8 +80,10 @@ export const ResultsDisplay = ({
         </h2>
         {fallbackUsed ? (
           <p className="text-primary-foreground/90">
-            Enhancement fallback used. Original shown.
-            {fallbackReason ? " Reason: " + fallbackReason : ""}
+            Your image has been enhanced using OpenCV (4x bicubic + sharpening).
+            {fallbackReason && fallbackReason.includes("unavailable")
+              ? " RealESRGAN binary not installed - using quality fallback."
+              : ""}
           </p>
         ) : (
           <p className="text-primary-foreground/90">
