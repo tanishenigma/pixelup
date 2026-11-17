@@ -2,6 +2,9 @@
 node_modules/
 backend/.venv/
 backend/__pycache__/
+backend/local_storage/
+backend/bin/
+backend/osdface/
 
 # Build outputs
 dist/

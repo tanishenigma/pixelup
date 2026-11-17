@@ -1,13 +1,18 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Sparkles, Cpu, Trash2 } from "lucide-react";
+import {
+  Columns2,
+  Download,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import type { UpscaledImage } from "@/pages/MyImages";
 import { toast } from "sonner";
-import { db, storage } from "@/lib/firebase";
-import { doc, deleteDoc } from "firebase/firestore";
-import { ref, deleteObject } from "firebase/storage";
+import { deleteImage } from "@/services/backendService";
+import { ImageCompareSlider } from "./ImageCompareSlider";
+import GlassSurface from "./GlassSurface";
 
 interface ImageGridProps {
   images: UpscaledImage[];
@@ -19,37 +24,24 @@ export const ImageGrid = ({ images, onImageDeleted }: ImageGridProps) => {
     null
   );
   const [isDeleting, setIsDeleting] = useState(false);
+  const [compareMode, setCompareMode] = useState<
+    "slider" | "side-by-side" | "magnify"
+  >("slider");
 
   const handleDownload = async (url: string) => {
     try {
-      // For Firebase URLs, use XMLHttpRequest which handles CORS better
-      const xhr = new XMLHttpRequest();
-      xhr.responseType = "blob";
-      xhr.onload = () => {
-        const blob = xhr.response;
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = downloadUrl;
-        a.download = `upscaled-${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(a);
-        toast.success("Download started");
-      };
-      xhr.onerror = () => {
-        console.error("XHR download failed, trying fallback");
-        // Fallback: Create a temporary link with download attribute
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `upscaled-${Date.now()}.png`;
-        a.target = "_blank";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      xhr.open("GET", url);
-      xhr.send();
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `upscaled-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Download failed. Opening in new tab...");
@@ -60,44 +52,9 @@ export const ImageGrid = ({ images, onImageDeleted }: ImageGridProps) => {
   const handleDelete = async (image: UpscaledImage) => {
     setIsDeleting(true);
     try {
-      // Extract the storage path from the URL
-      const getStoragePathFromUrl = (url: string) => {
-        try {
-          const decodedUrl = decodeURIComponent(url);
-          const match = decodedUrl.match(/\/o\/(.+?)\?/);
-          return match ? match[1] : null;
-        } catch {
-          return null;
-        }
-      };
-
-      // Delete from Firestore
-      await deleteDoc(doc(db, "upscaledImages", image.id));
-
-      // Delete files from Storage
-      const originalPath = getStoragePathFromUrl(image.originalUrl);
-      const upscaledPath = getStoragePathFromUrl(image.upscaledUrl);
-
-      if (originalPath) {
-        try {
-          await deleteObject(ref(storage, originalPath));
-        } catch (err) {
-          console.warn("Failed to delete original image:", err);
-        }
-      }
-
-      if (upscaledPath) {
-        try {
-          await deleteObject(ref(storage, upscaledPath));
-        } catch (err) {
-          console.warn("Failed to delete upscaled image:", err);
-        }
-      }
-
+      await deleteImage(image.id);
       toast.success("Image deleted successfully");
       setSelectedImage(null);
-
-      // Notify parent to refresh the list
       if (onImageDeleted) {
         onImageDeleted();
       }
@@ -111,77 +68,138 @@ export const ImageGrid = ({ images, onImageDeleted }: ImageGridProps) => {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {images.map((image) => (
-          <Card
+          <button
             key={image.id}
-            className="group cursor-pointer overflow-hidden border-border bg-card transition-all hover:shadow-medium"
-            onClick={() => setSelectedImage(image)}>
-            <div className="relative aspect-square overflow-hidden">
-              <img
-                src={image.upscaledUrl}
-                alt="Upscaled"
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-            </div>
-            <div className="p-3">
-              <p className="text-xs text-muted-foreground">
-                {image.timestamp.toLocaleDateString()} at{" "}
-                {image.timestamp.toLocaleTimeString()}
-              </p>
-            </div>
-          </Card>
+            type="button"
+            onClick={() => setSelectedImage(image)}
+            className="group w-full text-left rounded-[20px] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110"
+          >
+            <GlassSurface
+              width="100%"
+              height="auto"
+              borderRadius={20}
+              refraction={false}
+              backgroundOpacity={0.1}
+              className="w-full"
+            >
+              <div className="w-full p-2.5">
+                <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                  <img
+                    src={image.upscaledUrl}
+                    alt="Upscaled"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+                <div className="flex items-center justify-between px-1 pt-2.5 pb-0.5">
+                  <span className="text-xs text-muted-foreground">
+                    {image.timestamp.toLocaleDateString()} ·{" "}
+                    {image.timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <span className="rounded-md border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                    {image.scale ? `${image.scale}x` : "HD"}
+                  </span>
+                </div>
+              </div>
+            </GlassSurface>
+          </button>
         ))}
       </div>
 
       <Dialog
         open={!!selectedImage}
         onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-4xl border-white/15 bg-card/85 backdrop-blur-xl">
           {selectedImage && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex mr-10 gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 mr-8">
+                <div className="flex gap-2">
                   <Button
                     onClick={() => handleDownload(selectedImage.upscaledUrl)}
-                    className="gap-2 bg-gradient-primary hover:opacity-90">
-                    <Download className="h-4 w-4" />
+                    className="group gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(167,139,250,0.35)]">
+                    <Download className="h-4 w-4 text-white transition-transform duration-200 group-hover:translate-y-0.5" />
                     Download
                   </Button>
                   <Button
                     onClick={() => handleDelete(selectedImage)}
                     disabled={isDeleting}
                     variant="destructive"
-                    className="gap-2">
-                    <Trash2 className="h-4 w-4" />
+                    className="group gap-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(239,68,68,0.35)]">
+                    <Trash2 className="h-4 w-4 text-white transition-transform duration-200 group-hover:rotate-[-8deg] group-hover:scale-110" />
                     {isDeleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1 backdrop-blur-md">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={compareMode === "slider" ? "secondary" : "ghost"}
+                    className="gap-1.5"
+                    onClick={() => setCompareMode("slider")}
+                  >
+                    <SlidersHorizontal className="h-4 w-4 text-white" />
+                    Slider
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={
+                      compareMode === "side-by-side" ? "secondary" : "ghost"
+                    }
+                    className="gap-1.5"
+                    onClick={() => setCompareMode("side-by-side")}
+                  >
+                    <Columns2 className="h-4 w-4 text-white" />
+                    Side by Side
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={compareMode === "magnify" ? "secondary" : "ghost"}
+                    className="gap-1.5"
+                    onClick={() => setCompareMode("magnify")}
+                  >
+                    <Search className="h-4 w-4 text-white" />
+                    Magnify
                   </Button>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">
-                    Original
-                  </h4>
-                  <img
-                    src={selectedImage.originalUrl}
-                    alt="Original"
-                    className="w-full rounded-lg border border-border"
-                  />
+              {compareMode === "slider" || compareMode === "magnify" ? (
+                <ImageCompareSlider
+                  beforeUrl={selectedImage.originalUrl}
+                  afterUrl={selectedImage.upscaledUrl}
+                  magnifyMode={compareMode === "magnify"}
+                />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Original
+                    </h4>
+                    <img
+                      src={selectedImage.originalUrl}
+                      alt="Original"
+                      className="w-full rounded-lg border border-border"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Upscaled HD
+                    </h4>
+                    <img
+                      src={selectedImage.upscaledUrl}
+                      alt="Upscaled"
+                      className="w-full rounded-lg border-2 border-primary"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">
-                    Upscaled HD
-                  </h4>
-                  <img
-                    src={selectedImage.upscaledUrl}
-                    alt="Upscaled"
-                    className="w-full rounded-lg border-2 border-primary"
-                  />
-                </div>
-              </div>
+              )}
 
               <p className="text-center text-sm text-muted-foreground">
                 Created on {selectedImage.timestamp.toLocaleDateString()} at{" "}

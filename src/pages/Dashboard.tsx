@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Navbar } from "@/components/Navbar";
+import type { ScaleFactor } from "@/services/backendService";
 import { ImageUploader } from "@/components/ImageUploader";
 import { MethodSelector } from "@/components/MethodSelector";
-import { ProcessingStatus } from "@/components/ProcessingStatus";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
+import CRTWarp from "@/components/CRTWarp";
+import RefineFrame from "@/components/RefineFrame";
 
 export type UpscaleMethod = "local" | null;
 export type ProcessingState =
@@ -14,10 +15,13 @@ export type ProcessingState =
   | "error";
 
 const Dashboard = () => {
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null); // enhanced image download URL
-  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null); // local preview only
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [originalResultUrl, setOriginalResultUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<UpscaleMethod>(null);
+  const [selectedScale, setSelectedScale] = useState<ScaleFactor>(2);
+  const [progress, setProgress] = useState<number>(0);
   const [processingState, setProcessingState] =
     useState<ProcessingState>("idle");
   const [upscaledImageUrl, setUpscaledImageUrl] = useState<string | null>(null);
@@ -29,6 +33,7 @@ const Dashboard = () => {
   const handleImageSelected = (file: File | null, preview?: string | null) => {
     setSelectedFile(file);
     setPreviewDataUrl(preview || null);
+    setOriginalResultUrl(null);
     setUploadedImageUrl(null);
     setSelectedMethod(null);
     setProcessingState("idle");
@@ -44,12 +49,16 @@ const Dashboard = () => {
 
   const handleProcessingComplete = (
     enhancedUrl: string,
+    originalUrl: string,
     fallback: boolean,
     reason?: string | null,
-    strategy?: string
+    strategy?: string,
+    scale?: ScaleFactor
   ) => {
     setUpscaledImageUrl(enhancedUrl);
+    setOriginalResultUrl(originalUrl);
     setUploadedImageUrl(enhancedUrl);
+    if (scale) setSelectedScale(scale);
     setProcessingState("complete");
     setFallbackUsed(fallback);
     setFallbackReason(reason || null);
@@ -64,6 +73,7 @@ const Dashboard = () => {
   const handleReset = () => {
     setSelectedFile(null);
     setPreviewDataUrl(null);
+    setOriginalResultUrl(null);
     setUploadedImageUrl(null);
     setSelectedMethod(null);
     setProcessingState("idle");
@@ -74,26 +84,45 @@ const Dashboard = () => {
     setStrategy(null);
   };
 
+  const isLoading =
+    processingState === "processing" || processingState === "uploading";
+
+  const refineStatus =
+    progress >= 100
+      ? "complete"
+      : progress >= 65
+        ? "refining"
+        : progress >= 20
+          ? "generating"
+          : "queued";
+
   return (
-    <div className="min-h-screen  bg-gradient-subtle">
-      <Navbar />
+    <>
+      {/* CRTWarp background overlay that fades in/out during loading */}
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none fixed inset-0 z-0 transition-opacity duration-1000 ease-in-out ${
+          isLoading ? "opacity-80" : "opacity-0"
+        }`}
+      >
+        <CRTWarp
+          color="#c755f7"
+          backgroundColor="transparent"
+          mask="aperture"
+          curvature={0.25}
+          persistence={0.4}
+          paused={!isLoading}
+        />
+      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="mb-3 text-4xl font-bold text-foreground">
-            Pixelup Your Image
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Transform your images to stunning HD quality with AI
-          </p>
-        </div>
-
-        <div className="mx-auto max-w-4xl space-y-6">
+      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-6rem)] w-full max-w-4xl flex-col justify-center px-4 py-8">
+        <div className="w-full space-y-6">
           {processingState === "complete" && upscaledImageUrl ? (
             <ResultsDisplay
-              originalImageUrl={previewDataUrl || ""}
+              originalImageUrl={originalResultUrl || previewDataUrl || ""}
               upscaledImageUrl={upscaledImageUrl || ""}
               method={selectedMethod || "local"}
+              scale={selectedScale}
               onReset={handleReset}
               fallbackUsed={fallbackUsed}
               fallbackReason={fallbackReason || undefined}
@@ -101,32 +130,68 @@ const Dashboard = () => {
             />
           ) : (
             <>
-              <ImageUploader
-                onImageSelected={handleImageSelected}
-                disabled={processingState === "processing"}
-                selectedFile={selectedFile}
-              />
+              <div
+                className={
+                  selectedFile && previewDataUrl && !isLoading
+                    ? "grid items-start gap-5 md:grid-cols-[1fr_260px]"
+                    : "w-full"
+                }
+              >
+                <div className="relative min-w-0">
+                  {isLoading && previewDataUrl ? (
+                    <div className="flex justify-center">
+                      <RefineFrame
+                        status={refineStatus}
+                        aspectRatio="16 / 10"
+                        width={896}
+                        radius={20}
+                        background="#1a1625"
+                        color="#f5f5f5"
+                        stageDuration={450}
+                        sweep
+                        showStatus
+                        hideAfter={0}
+                        labels={{
+                          queued: `Queued ${progress}%`,
+                          generating: `Upscaling ${progress}%`,
+                          refining: `Refining ${progress}%`,
+                          complete: "Ready 100%",
+                        }}
+                        className="w-full shadow-elevated"
+                      >
+                        <img
+                          src={previewDataUrl}
+                          alt="Upscaling preview"
+                          className="h-full w-full object-contain"
+                        />
+                      </RefineFrame>
+                    </div>
+                  ) : (
+                    <ImageUploader
+                      onImageSelected={handleImageSelected}
+                      disabled={isLoading}
+                      selectedFile={selectedFile}
+                    />
+                  )}
+                </div>
 
-              {selectedFile &&
-                previewDataUrl &&
-                (processingState === "idle" || processingState === "error") && (
-                  <MethodSelector
-                    onMethodSelected={handleMethodSelected}
-                    disabled={false}
-                    file={selectedFile}
-                    onProcessingStateChange={setProcessingState}
-                    onProcessingComplete={handleProcessingComplete}
-                    onError={handleError}
-                  />
-                )}
-
-              {(processingState === "processing" ||
-                processingState === "uploading") && (
-                <ProcessingStatus
-                  state={processingState}
-                  method={selectedMethod}
-                />
-              )}
+                {selectedFile &&
+                  previewDataUrl &&
+                  (processingState === "idle" ||
+                    processingState === "error") && (
+                    <div className="w-full">
+                      <MethodSelector
+                        onMethodSelected={handleMethodSelected}
+                        disabled={false}
+                        file={selectedFile}
+                        onProcessingStateChange={setProcessingState}
+                        onProgressChange={setProgress}
+                        onProcessingComplete={handleProcessingComplete}
+                        onError={handleError}
+                      />
+                    </div>
+                  )}
+              </div>
 
               {processingState === "error" && errorMessage && (
                 <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-center">
@@ -137,7 +202,7 @@ const Dashboard = () => {
           )}
         </div>
       </main>
-    </div>
+    </>
   );
 };
 

@@ -1,13 +1,24 @@
-import { Card } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, RotateCcw } from "lucide-react";
+import {
+  Columns2,
+  Download,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react";
 import type { UpscaleMethod } from "@/pages/Dashboard";
 import { toast } from "sonner";
+import { ImageCompareSlider } from "./ImageCompareSlider";
+import GlassSurface from "./GlassSurface";
+
+import type { ScaleFactor } from "@/services/backendService";
 
 interface ResultsDisplayProps {
   originalImageUrl: string;
   upscaledImageUrl: string;
   method: UpscaleMethod;
+  scale?: ScaleFactor;
   onReset: () => void;
   fallbackUsed?: boolean;
   fallbackReason?: string;
@@ -17,42 +28,27 @@ interface ResultsDisplayProps {
 export const ResultsDisplay = ({
   originalImageUrl,
   upscaledImageUrl,
-  method,
+  scale = 2,
   onReset,
-  fallbackUsed = false,
-  fallbackReason,
-  strategy,
 }: ResultsDisplayProps) => {
+  const [compareMode, setCompareMode] = useState<
+    "slider" | "side-by-side" | "magnify"
+  >("slider");
+
   const handleDownload = async () => {
     try {
-      // For Firebase URLs, we can use XMLHttpRequest which handles CORS better
-      const xhr = new XMLHttpRequest();
-      xhr.responseType = "blob";
-      xhr.onload = () => {
-        const blob = xhr.response;
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `upscaled-${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        toast.success("Download started");
-      };
-      xhr.onerror = () => {
-        console.error("XHR download failed, trying fallback");
-        // Fallback: Create a temporary link with download attribute
-        const a = document.createElement("a");
-        a.href = upscaledImageUrl;
-        a.download = `upscaled-${Date.now()}.png`;
-        a.target = "_blank";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      };
-      xhr.open("GET", upscaledImageUrl);
-      xhr.send();
+      const resp = await fetch(upscaledImageUrl);
+      if (!resp.ok) throw new Error("Download failed");
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `upscaled-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Download started");
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Download failed. Opening in new tab...");
@@ -61,82 +57,134 @@ export const ResultsDisplay = ({
   };
 
   return (
-    <Card className="overflow-hidden border-border bg-card shadow-elevated">
-      <div className="bg-gradient-primary p-6 text-center">
-        <h2 className="mb-2 text-3xl font-bold text-primary-foreground flex items-center justify-center gap-3">
-          <span>Success! </span>
-          {strategy && (
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-medium tracking-wide uppercase ${
-                strategy === "realesrgan"
-                  ? "bg-white/20 text-primary-foreground"
-                  : "bg-amber-500/80 text-white"
-              }`}>
-              {strategy === "realesrgan"
-                ? "RealESRGAN"
-                : strategy.replace("-", " ")}
-            </span>
+    <GlassSurface
+      width="100%"
+      height="auto"
+      borderRadius={20}
+      refraction={false}
+      backgroundOpacity={0.12}
+      className="w-full"
+    >
+      <div className="w-full p-4 sm:p-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Upscaled!</h2>
+            <p className="text-sm text-muted-foreground">
+              {scale}x resolution enhancement complete
+            </p>
+          </div>
+          <div className="flex items-center gap-1 rounded-xl bg-muted/50 p-1 backdrop-blur-sm">
+            <Button
+              type="button"
+              size="sm"
+              variant={compareMode === "slider" ? "secondary" : "ghost"}
+              className="gap-1.5"
+              onClick={() => setCompareMode("slider")}
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Slider
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={compareMode === "side-by-side" ? "secondary" : "ghost"}
+              className="gap-1.5"
+              onClick={() => setCompareMode("side-by-side")}
+            >
+              <Columns2 className="h-4 w-4" />
+              Side by Side
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={compareMode === "magnify" ? "secondary" : "ghost"}
+              className="gap-1.5"
+              onClick={() => setCompareMode("magnify")}
+            >
+              <Search className="h-4 w-4" />
+              Magnify
+            </Button>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          {compareMode === "slider" || compareMode === "magnify" ? (
+            <ImageCompareSlider
+              beforeUrl={originalImageUrl}
+              afterUrl={upscaledImageUrl}
+              afterLabel={`After (${scale}x)`}
+              magnifyMode={compareMode === "magnify"}
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-foreground">Original</h3>
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <img
+                    src={originalImageUrl}
+                    alt="Original"
+                    className="h-auto w-full object-contain"
+                    style={{ maxHeight: "400px" }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-foreground">Upscaled HD</h3>
+                <div className="overflow-hidden rounded-lg border-2 border-primary shadow-medium">
+                  <img
+                    src={upscaledImageUrl}
+                    alt="Upscaled"
+                    className="h-auto w-full object-contain"
+                    style={{ maxHeight: "400px" }}
+                  />
+                </div>
+              </div>
+            </div>
           )}
-        </h2>
-        {fallbackUsed ? (
-          <p className="text-primary-foreground/90">
-            Your image has been enhanced using OpenCV (4x bicubic + sharpening).
-            {fallbackReason && fallbackReason.includes("unavailable")
-              ? " RealESRGAN binary not installed - using quality fallback."
-              : ""}
-          </p>
-        ) : (
-          <p className="text-primary-foreground/90">
-            Your image has been upscaled with RealESRGAN (4x resolution)
-          </p>
-        )}
-      </div>
-
-      <div className="p-6">
-        <div className="mb-6 grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-foreground">Original</h3>
-            <div className="overflow-hidden rounded-lg border border-border">
-              <img
-                src={originalImageUrl}
-                alt="Original"
-                className="h-auto w-full object-contain"
-                style={{ maxHeight: "400px" }}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h3 className="font-semibold text-foreground">Upscaled HD</h3>
-            <div className="overflow-hidden rounded-lg border-2 border-primary shadow-medium">
-              <img
-                src={upscaledImageUrl}
-                alt="Upscaled"
-                className="h-auto w-full object-contain"
-                style={{ maxHeight: "400px" }}
-              />
-            </div>
-          </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button
+          <button
+            type="button"
             onClick={handleDownload}
-            className="flex-1 gap-2 bg-gradient-primary hover:opacity-90"
-            size="lg">
-            <Download className="h-5 w-5" />
-            Download HD Image
-          </Button>
-          <Button
+            className="group flex-1 rounded-2xl transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_8px_24px_rgba(167,139,250,0.3)] active:translate-y-0 active:opacity-85"
+          >
+            <GlassSurface
+              width="100%"
+              height={48}
+              borderRadius={16}
+              refraction={false}
+              backgroundOpacity={0.22}
+              className="w-full bg-primary/20"
+            >
+              <span className="flex items-center justify-center gap-2 font-semibold text-foreground">
+                <Download className="h-5 w-5 text-white transition-transform duration-200 group-hover:translate-y-0.5" />
+                Download HD Image
+              </span>
+            </GlassSurface>
+          </button>
+          <button
+            type="button"
             onClick={onReset}
-            variant="outline"
-            className="flex-1 gap-2"
-            size="lg">
-            <RotateCcw className="h-5 w-5" />
-            Upscale Another
-          </Button>
+            className="flex-1 rounded-2xl transition-all hover:brightness-110 active:opacity-85"
+          >
+            <GlassSurface
+              width="100%"
+              height={48}
+              borderRadius={16}
+              refraction={false}
+              backgroundOpacity={0.08}
+              className="w-full"
+            >
+              <span className="flex items-center justify-center gap-2 font-medium text-foreground">
+                <RotateCcw className="h-5 w-5" />
+                Upscale Another
+              </span>
+            </GlassSurface>
+          </button>
         </div>
       </div>
-    </Card>
+    </GlassSurface>
   );
 };

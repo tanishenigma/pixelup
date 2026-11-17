@@ -1,106 +1,84 @@
-import React from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Sparkles, Image as ImageIcon, LogOut } from "lucide-react";
+import { Sparkles, Image as ImageIcon } from "lucide-react";
+import GlassSurface from "./GlassSurface";
 
 export const Navbar = () => {
-  const { user, signOut } = useAuth();
   const location = useLocation();
+  const upscaleRef = useRef<HTMLAnchorElement>(null);
+  const imagesRef = useRef<HTMLAnchorElement>(null);
+  const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({
+    left: 4,
+    width: 0,
+  });
 
-  const isActive = (path: string) => location.pathname === path;
+  const isImages =
+    location.pathname === "/images" || location.pathname === "/my-images";
+
+  useEffect(() => {
+    const target = isImages ? imagesRef.current : upscaleRef.current;
+    if (!target) return;
+    setPillStyle({
+      left: target.offsetLeft,
+      width: target.offsetWidth,
+    });
+  }, [isImages]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full  border-b border-border bg-card/80 backdrop-blur-md">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center">
-          <img src="/logo.png" width={50} className="mt-2 " />
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-foreground tracking-wider">
+    <header className="sticky top-4 z-50 mx-auto w-full max-w-4xl px-4">
+      <GlassSurface
+        width="100%"
+        height={64}
+        borderRadius={24}
+        backgroundOpacity={0.04}
+        displace={0.5}
+        distortionScale={-160}
+        className="w-full px-3"
+      >
+        <nav className="flex w-full items-center justify-between px-2">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src="/logo.png"
+              alt="Pixelup"
+              className="h-9 w-9 object-contain"
+            />
+            <span className="text-lg font-bold tracking-wider text-foreground">
               Pixelup
             </span>
           </Link>
-        </div>
 
-        <div className="flex gap-x-5">
-          {user && (
-            <div className="hidden items-center gap-1 md:flex">
-              <Link to="/">
-                <Button
-                  variant={isActive("/") ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Link to="/my-images">
-                <Button
-                  variant={isActive("/my-images") ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2">
-                  <ImageIcon className="h-4 w-4" />
-                  My Images
-                </Button>
-              </Link>
-            </div>
-          )}
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10 border-2 border-primary/20">
-                    <AvatarImage
-                      src={user.photoURL || undefined}
-                      alt={user.displayName || "User"}
-                    />
-                    <AvatarFallback className="bg-gradient-primary text-primary-foreground">
-                      {user.displayName?.charAt(0) ||
-                        user.email?.charAt(0) ||
-                        "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center gap-2 px-2 py-1.5">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.photoURL || undefined} />
-                    <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs">
-                      {user.displayName?.charAt(0) ||
-                        user.email?.charAt(0) ||
-                        "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <p className="text-sm font-medium">
-                      {user.displayName || "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </div>
-                <DropdownMenuItem
-                  onClick={signOut}
-                  className="cursor-pointer gap-2 text-destructive">
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-    </nav>
+          <div className="relative flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1 backdrop-blur-md">
+            {/* Sliding liquid glass active pill */}
+            {pillStyle.width > 0 && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-1 rounded-lg border border-white/25 bg-white/15 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.3),0_4px_14px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-300 ease-out"
+                style={{
+                  left: pillStyle.left,
+                  width: pillStyle.width,
+                }}
+              />
+            )}
+
+            <Link
+              ref={upscaleRef}
+              to="/"
+              className="relative z-10 inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
+            >
+              <Sparkles className="h-4 w-4 text-white" />
+              Upscale
+            </Link>
+            <Link
+              ref={imagesRef}
+              to="/images"
+              className="relative z-10 inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
+            >
+              <ImageIcon className="h-4 w-4 text-white" />
+              My Images
+            </Link>
+          </div>
+        </nav>
+      </GlassSurface>
+    </header>
   );
 };
