@@ -21,9 +21,9 @@ export async function loadMetadata(): Promise<StoredImageMetadata[]> {
     const raw = await fsp.readFile(METADATA_FILE, "utf-8");
     const data = JSON.parse(raw);
     return Array.isArray(data) ? data : [];
-  } catch (err: any) {
+  } catch (err: unknown) {
     logEvent("ERROR", "Failed to read metadata.json", {
-      error: err?.message || String(err),
+      error: err instanceof Error ? err.message : String(err),
     });
     return [];
   }

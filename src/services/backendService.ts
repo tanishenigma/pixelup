@@ -49,11 +49,10 @@ export async function processImage(
       method: "POST",
       body: formData,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "network error";
     throw new Error(
-      `Cannot reach enhancement server at ${backendUrl}. Is the backend running? (${
-        err?.message || "network error"
-      })`
+      `Cannot reach enhancement server at ${backendUrl}. Is the backend running? (${message})`
     );
   }
 
@@ -72,7 +71,15 @@ export async function processImage(
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let resultData: any = null;
+    let resultData: {
+      id?: string;
+      original_url?: string;
+      upscaled_url?: string;
+      scale?: number;
+      fallback?: boolean;
+      reason?: string | null;
+      strategy?: string;
+    } | null = null;
 
     while (true) {
       const { value, done } = await reader.read();
@@ -143,8 +150,18 @@ export async function getImages(): Promise<LocalImageItem[]> {
   if (!resp.ok) {
     throw new Error(`Failed to fetch images (${resp.status})`);
   }
-  const data = await resp.json();
-  return (data.images || []).map((item: any) => ({
+  const data = (await resp.json()) as {
+    images?: Array<{
+      id: string;
+      originalUrl: string;
+      upscaledUrl: string;
+      method?: "local" | "realesrgan";
+      strategy?: string;
+      fallback?: boolean;
+      timestamp: string;
+    }>;
+  };
+  return (data.images || []).map((item) => ({
     id: item.id,
     originalUrl: `${backendUrl}${item.originalUrl}`,
     upscaledUrl: `${backendUrl}${item.upscaledUrl}`,

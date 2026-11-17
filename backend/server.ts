@@ -114,21 +114,22 @@ app.post(
         return res.end();
       }
       return res.json(payload);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
       logEvent("ERROR", "Processing error", {
-        error: err?.message || String(err),
+        error: message,
         durationMs: Date.now() - startedAt,
       });
       if (useStream) {
         sendEvent("error", {
           error: "Enhancement failed",
-          detail: err?.message || String(err),
+          detail: message,
         });
         return res.end();
       }
       return res.status(500).json({
         error: "Enhancement failed",
-        detail: err?.message || String(err),
+        detail: message,
       });
     }
   }
@@ -175,15 +176,18 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const errObj = err as { code?: string; message?: string };
+  const message =
+    err instanceof Error ? err.message : errObj?.message || String(err);
   logEvent("ERROR", "Express error", {
-    code: err?.code,
-    message: err?.message || String(err),
+    code: errObj?.code,
+    message,
   });
-  const status = err?.code === "LIMIT_FILE_SIZE" ? 413 : 500;
+  const status = errObj?.code === "LIMIT_FILE_SIZE" ? 413 : 500;
   res.status(status).json({
-    error: err?.message || "Server error",
-    code: err?.code || "INTERNAL_ERROR",
+    error: message || "Server error",
+    code: errObj?.code || "INTERNAL_ERROR",
   });
 });
 

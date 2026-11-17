@@ -35,10 +35,10 @@ const MyImages = () => {
     try {
       const fetchedImages = await getImages();
       setImages(fetchedImages);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching images:", err);
       setError(
-        err?.message ||
+        (err instanceof Error ? err.message : null) ||
           "Could not load local images. Make sure the local backend is running.",
       );
     } finally {
@@ -56,9 +56,11 @@ const MyImages = () => {
       await deleteAllImages();
       setImages([]);
       toast.success("All images deleted");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Delete all error:", err);
-      toast.error(err?.message || "Failed to delete all images");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete all images"
+      );
     } finally {
       setDeletingAll(false);
     }

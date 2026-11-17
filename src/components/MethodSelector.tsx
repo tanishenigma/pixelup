@@ -155,9 +155,10 @@ export const MethodSelector = ({
         scale
       );
       toast.success("Image enhanced & saved locally");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Enhancement error:", err);
-      const message = err?.message || "Failed to enhance image";
+      const message =
+        err instanceof Error ? err.message : "Failed to enhance image";
       onError(message);
       toast.error(message);
       onProcessingStateChange("error");

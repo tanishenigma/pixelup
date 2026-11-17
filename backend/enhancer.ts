@@ -49,8 +49,9 @@ async function findRealesrganExe(): Promise<string | null> {
       ) {
         return candidate;
       }
-    } catch (err: any) {
-      const out = `${err?.stdout || ""}${err?.stderr || ""}`;
+    } catch (err: unknown) {
+      const execErr = err as { stdout?: string; stderr?: string };
+      const out = `${execErr?.stdout || ""}${execErr?.stderr || ""}`;
       if (out.includes("Usage:")) {
         return candidate;
       }

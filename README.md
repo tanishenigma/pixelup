@@ -16,10 +16,10 @@ npm install
 npm run dev
 ```
 - Frontend: `http://localhost:8080`
-- Backend: `http://127.0.0.1:5000`
+- Backend: `http://127.0.0.1:5050`
 
 ### Production/single-server mode
 ```bash
 npm run start
 ```
-Builds the frontend into `dist/` and serves both the UI and API from `http://127.0.0.1:5000`.
+Builds the frontend into `dist/` and serves both the UI and API from `http://127.0.0.1:5050`.
